@@ -1,0 +1,57 @@
+create table movies(id number(12) primary key, title varchar2(400) not null, category varchar2(50), year char(12), cast varchar2(4000),
+                    director varchar2(4000), story varchar2(4000), price number(5,2), cover blob, mime_type varchar2(50));
+                    
+insert into movies select d.id, d.title, d.category, d.year, d.cast, d.director, d.story, d.price, c.image, c.mime_type
+from descriptions d left outer join covers c on d.id = c.movie_id;
+
+select id, title from movies where cover is null;
+
+select id, title, dbms_lob.getlength(cover) from movies where cover is not null;
+
+select id, title, dbms_lob.getlength(cover) from movies where cover is null;
+
+select * from all_directories;
+
+update movies set cover = EMPTY_BLOB() where id=66;
+
+update movies set mime_type = 'image/jpeg' where id=66;
+
+select id, title, dbms_lob.getlength(cover) from movies where id=65 or id = 66;
+
+declare
+    fil BFILE:= BFILENAME('ZSBD_DIR','escape.jpg');
+    tmp_cover blob;
+begin
+    select cover into tmp_cover from movies where id = 66 for update;
+    DBMS_LOB.fileopen(fil,DBMS_LOB.file_readonly);
+    DBMS_LOB.LOADFROMFILE(tmp_cover,fil,DBMS_LOB.GETLENGTH(fil));
+    DBMS_LOB.FILECLOSE(fil);
+    commit;
+end;
+
+create table temp_covers(movie_id number(12), image bfile, mime_type varchar2(50));
+
+insert into temp_covers values(65, BFILENAME('ZSBD_DIR','eagles.jpg'), 'image/jpeg');
+commit;
+
+select movie_id, dbms_lob.getlength(image) from temp_covers;
+
+declare
+    tmp_lob blob;
+    cov bfile;
+    typ varchar2(50);
+begin
+    select image, mime_type into cov, typ from temp_covers where movie_id=65;
+    dbms_lob.createtemporary(tmp_lob,TRUE);
+    DBMS_LOB.fileopen(cov,DBMS_LOB.file_readonly);
+    DBMS_LOB.LOADFROMFILE(tmp_lob,cov,DBMS_LOB.GETLENGTH(cov));
+    DBMS_LOB.FILECLOSE(cov);
+    update movies set cover = tmp_lob, mime_type=typ where id=65;
+    dbms_lob.freetemporary(tmp_lob);
+    commit;
+end;
+
+select id, title, dbms_lob.getlength(cover) from movies where id=65 or id = 66;
+
+drop table movies;
+drop table temp_covers;
