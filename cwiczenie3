@@ -1,0 +1,98 @@
+create table dokumenty(id number(12) primary key, dokument clob);
+
+begin
+    insert into dokumenty values(1,'');
+end;
+
+declare
+    clo clob := EMPTY_CLOB();
+begin
+    for j in 1..10000 loop
+        clo := clo || 'Oto tekst. ';
+    end loop;
+    update dokumenty set dokument=clo where id=1;
+end;
+
+select * from dokumenty;
+
+select upper(dokument) from dokumenty;
+
+select length(dokument) from dokumenty;
+
+select dbms_lob.getlength(dokument) from dokumenty;
+
+select substr(dokument, 5, 1000) from dokumenty;
+
+select dbms_lob.substr(dokument, 1000, 5) from dokumenty;
+
+insert into dokumenty values(2, EMPTY_CLOB());
+
+insert into dokumenty values(3, NULL);
+
+commit;
+
+select upper(dokument) from dokumenty where id=2;
+
+select length(dokument) from dokumenty where id=2;
+
+select dbms_lob.getlength(dokument) from dokumenty where id=2;
+
+select substr(dokument, 5, 1000) from dokumenty where id=2;
+
+select dbms_lob.substr(dokument, 1000, 5) from dokumenty where id=2;
+
+select upper(dokument) from dokumenty where id=3;
+
+select length(dokument) from dokumenty where id=3;
+
+select dbms_lob.getlength(dokument) from dokumenty where id=3;
+
+select substr(dokument, 5, 1000) from dokumenty where id=3;
+
+select dbms_lob.substr(dokument, 1000, 5) from dokumenty where id=3;
+
+select * from all_directories;
+
+declare
+    plik BFILE:=BFILENAME('ZSBD_DIR','dokument.txt');
+    clo clob;
+    xoffset integer:=1;
+    langctx integer:=0;
+    warn integer:=null;
+begin
+    select dokument into clo from dokumenty where id=2 for update;
+    DBMS_LOB.fileopen(plik,DBMS_LOB.file_readonly);
+    DBMS_LOB.LOADCLOBFROMFILE(clo, plik, DBMS_LOB.LOBMAXSIZE,  xoffset, xoffset, 0, langctx, warn);
+    DBMS_LOB.FILECLOSE(plik);
+    commit;
+end;
+
+update dokumenty set dokument = to_clob(BFILENAME('ZSBD_DIR','dokument.txt'), 0, 'text/xml') where id=3;
+
+drop table dokumenty;
+
+create or replace procedure clob_censor(in_text in out clob, rep_text VARCHAR2) is
+pos integer := 2;
+dot_str VARCHAR2(50) := '.';
+begin
+    for i in 1..length(rep_text)-1 loop
+        dot_str := dot_str || '.';
+    end loop;
+    while pos > 0 loop
+        pos := instr(in_text, rep_text);
+        if pos > 0 then
+        dbms_lob.write(in_text, length(dot_str), pos, dot_str);
+        end if;
+    end loop;
+end;
+
+create table bio_copy as select * from zsbd_tools.biographies;
+
+select * from bio_copy;
+
+declare
+    clo clob;
+begin
+    select bio into clo from bio_copy where id=1 for update;
+     clob_censor(clo, 'Cimrman');
+end;
