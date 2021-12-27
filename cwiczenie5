@@ -1,0 +1,28 @@
+INSERT INTO USER_SDO_GEOM_METADATA VALUES ('figury','ksztalt',
+MDSYS.SDO_DIM_ARRAY(MDSYS.SDO_DIM_ELEMENT('X', 0, 10, 0.01),MDSYS.SDO_DIM_ELEMENT('Y', 0, 10, 0.01) ), null);
+
+select SDO_TUNE.ESTIMATE_RTREE_INDEX_SIZE(3000000,8192,10,2,0) from dual;
+
+create index ksztalt_idx on figury(ksztalt) INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2;
+
+select ID from FIGURY where SDO_FILTER(KSZTALT,SDO_GEOMETRY(2001,null,SDO_POINT_TYPE(3,3,null),null,null)) = 'TRUE';
+
+select ID from FIGURY where SDO_RELATE(KSZTALT,SDO_GEOMETRY(2001,null,SDO_POINT_TYPE(3,3,null),null,null),'mask=ANYINTERACT') = 'TRUE';
+
+select city_name, sdo_nn_distance(1) as odl from major_cities where sdo_nn_distance(1) > 0 and sdo_nn(geom, (select geom from major_cities where city_name='Warsaw'), 'sdo_num_res=10 unit=km', 1) = 'TRUE';
+
+select city_name from major_cities where city_name != 'Warsaw' and sdo_within_distance(geom, (select geom from major_cities where city_name = 'Warsaw'),'distance=100 unit=km') = 'TRUE';
+
+select c.cntry_name, m.city_name from country_boundaries c, major_cities m where c.cntry_name = 'Slovakia' and SDO_RELATE(c.geom,m.geom,'mask=ANYINTERACT') = 'TRUE';
+
+select a.cntry_name as panstwo, sdo_geom.sdo_distance(a.geom, b.geom, 1, 'unit=km') as odl from country_boundaries a, country_boundaries b where sdo_filter(a.geom, b.geom) != 'TRUE' and b.cntry_name = 'Poland';
+
+select a.cntry_name as panstwo, sdo_geom.sdo_distance(a.geom, b.geom, 1, 'unit=km') as odl from country_boundaries a, country_boundaries b where sdo_filter(a.geom, b.geom) = 'TRUE' and b.cntry_name = 'Poland';
+
+select a.cntry_name, round(sdo_geom.sdo_area(a.geom, 1, 'unit=sq_km')) from country_boundaries a order by round(sdo_geom.sdo_area(a.geom, 1, 'unit=sq_km')) desc fetch first 1 row only;
+
+select sdo_geom.sdo_union((select geom from country_boundaries where cntry_name = 'Poland'), (select geom from major_cities where city_name= 'Prague')) from dual;
+
+select distinct b.name, sum(sdo_geom.sdo_length(sdo_geom.sdo_intersection(b.geom, a.geom, 1), 1, 'unit=km'))
+from country_boundaries a, rivers b where a.cntry_name = 'Poland' and sdo_relate(a.geom, b.geom, 'mask=anyinteract') = 'TRUE'
+group by b.name;
