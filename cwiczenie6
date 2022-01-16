@@ -1,0 +1,69 @@
+select lpad('-',2*(level-1),'|-') || t.owner||'.'||t.type_name||' (FINAL:'||t.final||
+', INSTANTIABLE:'||t.instantiable||', ATTRIBUTES:'||t.attributes||', METHODS:'||t.methods||')'
+from all_types t
+start with t.type_name = 'ST_GEOMETRY'
+connect by prior t.type_name = t.supertype_name
+ and prior t.owner = t.owner;
+ 
+ select distinct m.method_name
+from all_type_methods m
+where m.type_name like 'ST_POLYGON'
+and m.owner = 'MDSYS'
+order by 1;
+
+create table myst_major_cities(fips_cntry varchar2(2), city_name varchar2(40), stgeom st_point);
+
+select * from major_cities;
+
+insert into myst_major_cities 
+select fips_cntry, city_name, st_point(geom) from major_cities;
+
+insert into myst_major_cities values ('PL', 'Szczyrk', treat(st_point.from_wkt('POINT (19.036107 49.718655)') as st_point));
+
+select name, st_geometry(geom).get_wkt() WKT from rivers;
+
+create table myst_country_boundaries(fips_cntry varchar2(2), cntry_name varchar2(40), stgeom st_multipolygon);
+
+insert into myst_country_boundaries 
+select fips_cntry, cntry_name, st_multipolygon(geom) from country_boundaries;
+
+select b.stgeom.st_geometrytype(), count(*) from myst_country_boundaries b group by b.stgeom.st_geometrytype();
+
+select b.stgeom.st_issimple() from myst_country_boundaries b;
+
+select B.CNTRY_NAME, count(*)
+from MYST_COUNTRY_BOUNDARIES B,
+ MYST_MAJOR_CITIES C
+where C.STGEOM.ST_WITHIN(B.STGEOM) = 1
+group by B.CNTRY_NAME;
+
+select A.CNTRY_NAME A_NAME, B.CNTRY_NAME B_NAME
+from MYST_COUNTRY_BOUNDARIES A,
+ MYST_COUNTRY_BOUNDARIES B
+where A.STGEOM.ST_TOUCHES(B.STGEOM) = 1
+and B.CNTRY_NAME = 'Czech Republic';
+
+select distinct B.CNTRY_NAME, R.name
+from MYST_COUNTRY_BOUNDARIES B, RIVERS R
+where B.CNTRY_NAME = 'Czech Republic'
+and ST_LINESTRING(R.GEOM).ST_INTERSECTS(B.STGEOM) = 1;
+
+select treat(A.STGEOM.ST_UNION(B.STGEOM) as st_polygon).st_area()
+from MYST_COUNTRY_BOUNDARIES A, MYST_COUNTRY_BOUNDARIES B
+where A.CNTRY_NAME = 'Czech Republic'
+and B.CNTRY_NAME = 'Slovakia';
+
+select B.STGEOM.ST_DIFFERENCE(ST_GEOMETRY(W.GEOM)).ST_GEOMETRYTYPE()
+from MYST_COUNTRY_BOUNDARIES B, WATER_BODIES W
+where B.CNTRY_NAME = 'Hungary'
+and W.name = 'Balaton';
+
+select b.cntry_name a_name, count(*)
+from myst_country_boundaries b, myst_major_cities c
+where SDO_WITHIN_DISTANCE(C.STGEOM, B.STGEOM, 'distance=100 unit=km') = 'TRUE'
+and B.CNTRY_NAME = 'Poland'
+group by B.CNTRY_NAME;
+
+create index MYST_MAJOR_CITIES_IDX on
+ MYST_MAJOR_CITIES(STGEOM)
+indextype IS MDSYS.SPATIAL_INDEX;
